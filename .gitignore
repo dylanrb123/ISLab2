@@ -4,3 +4,4 @@ raw_data/*
 
 .idea
 /extracted_features.json
+.DS_Store
