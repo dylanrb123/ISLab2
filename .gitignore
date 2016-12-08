@@ -1,7 +1,7 @@
-test_data
-training_data
 audio_data/*
 
 .idea
 /extracted_features.json
 .DS_Store
+/en19.wav
+/decision_tree.model
