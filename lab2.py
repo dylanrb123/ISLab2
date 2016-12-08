@@ -102,6 +102,7 @@ def generate_model():
         for row in examples_dict[language]:
             row.append(language)
             flat_data.append(row)
+
     tree = build_tree(flat_data)
     with open('decision_tree.model', 'wb') as out_file:
         pickle.dump(tree, out_file, pickle.HIGHEST_PROTOCOL)
@@ -121,21 +122,33 @@ def divide_data(rows, feature_num, value):
     return set1, set2
 
 
-def unique_results(rows):
+def unique_results(data):
+    """
+    Calculates the number of unique results per class in the training data
+    :param data:
+    :return: a dictionary containing the results per class
+    """
     results = {Language.English.name: 0, Language.Spanish.name: 0, Language.Polish.name: 0}
-    for row in rows:
+    for row in data:
         language = row[-1]
         results[language] += 1
     return results
 
 
-def entropy(rows):
-    if len(rows) == 0:
+def entropy(data):
+    """
+    Calculates the entropy of the given data
+    :param data: list of examples
+    :return: entropy of the data
+    """
+    # if the data is empty just return 0
+    if len(data) == 0:
         return 0
-    results = unique_results(rows)
+    results = unique_results(data)
     ent = 0.0
     for language in results.keys():
-        p = results[language] / len(rows)
+        p = results[language] / len(data)
+        # also return 0 if there are no results for the class
         if p == 0:
             return 0
         ent -= p * math.log2(p)
@@ -143,6 +156,11 @@ def entropy(rows):
 
 
 def build_tree(data):
+    """
+    Recursively builds the decision tree based on information gain
+    :param data: training data
+    :return: the root of the decision tree
+    """
     if len(data) == 0:
         return DecisionTreeNode()
     cur_score = entropy(data)
