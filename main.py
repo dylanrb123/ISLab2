@@ -17,60 +17,112 @@ This program has three parts:
 """
 
 from python_speech_features import mfcc
+from enum import Enum
 import scipy.io.wavfile as wav
 import sys
 import glob
 import time
 import json
-import base64
 
 
-def main(arg):
-    """
-    main function, dispatches based on command line arg
-    :param arg: which part of the program to run
-    """
-    if arg == "feature_extraction":
-        extract_mfcc()
+class Language(Enum):
+    english = 1
+    spanish = 2
+    polish = 3
 
 
 def extract_mfcc():
     """
-    Extracts the MFCC feature from each one second interval of each file in the raw_data folder (training data)
+    Extracts the MFCC feature from each one second interval of each file in the audio_data folder (training data)
     Saves results in a JSON file called 'extracted_features.json'. The format is as follows:
     {
-        in_filename:
+        language1:
         [
-            {file_segment_name: [numpy_data_type, base64_encoded_mfcc_data, numpy_array_shape]},
+            [example_list1],
+            [example_list2],
+            ...
+        ],
+        language2:
+        [
+            [example_list1],
+            [example_list2],
             ...
         ],
         ...
     }
     """
+    print("Extracting features from audio files in audio_data folder...", end=' ', flush=True)
     start_time = time.time()
-    json_dict = {}
-    for filename in glob.iglob('raw_data/*.wav'):
-        sample_rate, data = wav.read(filename)
+    json_dict = {Language.english.name: [], Language.spanish.name: [], Language.polish.name: []}
 
-        # split files into separate 1 second clips
-        name_counter = 1
+    for filename in glob.iglob('audio_data/*.wav'):
+        # determine language from filename
         filename_parts = filename.split('.')
         filename_path = filename_parts[0].split('/')
-        examples = []
-        for i in range(0, len(data), sample_rate):
-            new_data = data[i:i+sample_rate]
-            new_filename = filename_path[1] + "_" + str(name_counter) + '.' + filename_parts[1]
-            mfcc_feat = mfcc(new_data, sample_rate)
-            numpy_list = [str(mfcc_feat.dtype), base64.b64encode(mfcc_feat).decode("utf-8"), mfcc_feat.shape]
-            examples.append({new_filename: numpy_list})
-            name_counter += 1
-        json_dict[filename] = examples
+        if filename_path[1].startswith('en'):
+            language = Language.english
+        elif filename_path[1].startswith('es'):
+            language = Language.spanish
+        else:
+            language = Language.polish
 
+        # digest the file, put the resulting examples in the json dict
+        examples = digest_audio_file(filename)
+        json_dict[language.name].extend(examples)
+
+    # dump that crap into a JSON file!
     with open('extracted_features.json', 'w') as outfile:
         json.dump(json_dict, outfile)
+
     end_time = time.time()
+    print("Done.")
     print("Extracted features in {0:.2f} seconds. Results in 'extracted_features.json'.".format(end_time - start_time))
 
+
+def generate_model():
+    pass
+
+
+def predict_language(in_filename):
+    pass
+
+
+def digest_audio_file(filename):
+    """
+    Takes an incoming audio file, splits it into 1 second segments, calculates the MFCC of the segments, and returns
+    a list of examples (each example is a list of length 13)
+    :param filename: filename of the audio file
+    :return: list of examples for the audio file
+    """
+    sample_rate, data = wav.read(filename)
+
+    # split files into separate 1 second clips
+    examples = []
+
+    for i in range(0, len(data), sample_rate):
+        new_data = data[i:i + sample_rate]
+        mfcc_feat = mfcc(new_data, samplerate=sample_rate)
+
+        # this speech library automatically splits the source into 5 ms segments but that is too granular for my
+        # purposes, here I am averaging all of the values per feature and putting the result in an array for later
+        feature_list = [0] * 13
+        for j in range(13):
+            for k in range(len(mfcc_feat)):
+                feature_list[j] += mfcc_feat[k][j]
+        feature_list = [j / len(mfcc_feat) for j in feature_list]
+
+        examples.append(feature_list)
+    return examples
+
 if __name__ == "__main__":
-    main(sys.argv[1])
+    assert len(sys.argv) >= 2, "Usage: python3 main.py " \
+                               "[extract_features | generate_model | predict_language <filename>]"
+    if sys.argv[1] == "extract_features":
+        extract_mfcc()
+    elif sys.argv[1] == "generate_model":
+        generate_model()
+    else:
+        assert len(sys.argv) == 3, "Must specify filename for language prediction"
+        predict_language(sys.argv[2])
+
 

@@ -1,6 +1,6 @@
 test_data
 training_data
-raw_data/*
+audio_data/*
 
 .idea
 /extracted_features.json
