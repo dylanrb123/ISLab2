@@ -39,8 +39,7 @@ def main(args):
         generate_model()
     else:
         assert len(args) == 2, "Must specify filename for language prediction"
-        prediction = predict_language(args[1])
-        print("Predicted language: {}".format(prediction))
+        predict_language(args[1])
 
 
 def extract_mfcc():
@@ -96,6 +95,8 @@ def generate_model():
     Generates a decision tree from the features present in ./extracted_features.json. Model is saved in
     ./decision_tree.model
     """
+    print("Generating model...", end='', flush=True)
+    start_time = time.time()
     with open(FEATURES_JSON_FILENAME, 'r') as examples_file:
         examples_dict = json.load(examples_file)
     flat_data = []
@@ -107,6 +108,9 @@ def generate_model():
     tree = build_tree(flat_data)
     with open(MODEL_FILENAME, 'wb') as out_file:
         pickle.dump(tree, out_file, pickle.HIGHEST_PROTOCOL)
+    end_time = time.time()
+    print("Done.")
+    print("Generated model in {0:.2f} seconds. Result stored in 'decision_tree.model".format(end_time - start_time))
 
 
 def divide_data(rows, feature_num, value):
@@ -202,13 +206,11 @@ def predict_language(in_filename):
     Runs the given audio file through the model specified by ./decision_tree.model, prints the predicted language (English,
     Spanish, or Polish).
     :param in_filename: filename of audio file to predict
-    :return: the prediction
     """
-    print("Loading tree from file...", end='', flush=True)
+    print("Predicting language of {}...".format(in_filename), end='', flush=True)
+    start_time = time.time()
     with open(MODEL_FILENAME, 'rb') as tree_in_file:
         decision_tree = pickle.load(tree_in_file)
-    print("Done")
-    print("Predicting language of {}...".format(in_filename))
     examples = digest_audio_file(in_filename)
     votes = {Language.English.name: 0, Language.Spanish.name: 0, Language.Polish.name: 0}
     for example in examples:
@@ -218,7 +220,10 @@ def predict_language(in_filename):
 
     # prediction is the max of all of the votes
     prediction = max(votes, key=votes.get)
-    return prediction
+    end_time = time.time()
+    print("Done.")
+    print("Predicted language: {}".format(prediction))
+    print("Classified file in {0:.2f} seconds.".format(end_time - start_time))
 
 
 def classify(novel_data, tree):
